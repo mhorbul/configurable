@@ -1,3 +1,5 @@
+require 'configurable/config'
+
 # This module implements the common logic which is being used for
 # configuring modules and/or classes
 #
@@ -7,10 +9,6 @@ module Configurable
   # using the configuration logic
 
   module Errors
-    # The error class which is thrown when default configuraiton does
-    # not exist
-    class DefaultConfigNotExists < Exception; end
-
     # The error class which is thrown when config parameter was not
     # defined in the default configuration. All parameters you are
     # going to use as a configuration should be defined in the Class.default_configuration
@@ -28,6 +26,7 @@ module Configurable
   module ClassMethods
 
     # This method set up the default configuration
+    # Nested params are allowed
     #
     # @example
     #   class MyClass
@@ -35,50 +34,53 @@ module Configurable
     #
     #     default_configuration({
     #       :param_one => "One",
-    #       :param_two => "Two"
+    #       :param_two => "Two",
+    #       :param_three => {
+    #         :nested_param => "Three"
+    #       }
     #     })
     #   end
     #
     # @param (Hash) config define the default configuration
+    #
     # @api public
     def default_configuration(config)
-      @config = config
+      @config = Config.new(config)
     end
 
     # This method is being used to overwrite default configuration
+    # It raises exceptions when the key does not exist. That means it
+    # has not been definbed when Object has been configured by default
     #
     # @example
-    #   MyClass.configure({
-    #     :param_one => 1,
-    #     :param_two => 2
-    #   })
+    #   MyClass.configure do |config|
+    #     config.param_one = 1
+    #     config.param_two = 2
+    #   end
     #
-    # @raise [Configurable::Errors::DefaultConfigNotExists] when
+    # @raise [Configurable::Errors::NotConfigured] when
     #   default configuraton does not exist
-    # @raise [Configurable::Errors::ConfigParamNotFound] when provided
-    #   config has keys which do not exist in the default configuration
+    #
     # @api public
-    def configure(config)
+    def configure(&block)
       if @config.nil?
-        raise Errors::DefaultConfigNotExists, "#{self.name} does not have default configuration"
+        raise Errors::NotConfigured, "#{self.name} does not have default configuration" if @config.nil?
       end
-      unknown_keys = config.keys - @config.keys
-      unless unknown_keys.empty?
-        raise Errors::ConfigParamNotFound, "Configuration parameters #{unknown_keys.inspect} are not found"
-      end
-      # merge default config with the provided one
-      @config.merge!(config)
+      block.call @config
     end
 
     # Current configuration of the class
     #
     # @example
-    #   MyClass.config[:param_one] # => "one"
-    #   MyClass.config[:param_two] # => "two"
+    #   MyClass.config.param_one                # => "One"
+    #   MyClass.config.param_two                # => "Two"
+    #   MyClass.config.param_three.nested_param # => "Three"
     #
-    # @return [Hash] configuration of the class
+    # @return [Configurable::Config] Config object
+    #
     # @raise [Configurable::Errors::NotConfigured] when @config has
     #   not been defined by default or using #configure method
+    #
     # @api public
     def config
       raise Errors::NotConfigured, "#{self.name} is not configured" if @config.nil?
