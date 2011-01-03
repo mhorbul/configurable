@@ -1,4 +1,4 @@
-require 'configurable/config'
+require File.expand_path(File.join(File.dirname(__FILE__), 'configurable/config'))
 
 # This module implements the common logic which is being used for
 # configuring modules and/or classes
